@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"mime"
 	"mime/multipart"
+	"mime/quotedprintable"
 	"net/mail"
 	"strings"
 	"time"
@@ -417,6 +418,8 @@ func decodeContent(content io.Reader, encoding string) (io.Reader, error) {
 		return content, nil
 	case "":
 		return content, nil
+	case "quoted-printable":
+		return quotedprintable.NewReader(content), nil
 	default:
 		return nil, fmt.Errorf("unknown encoding: %s", encoding)
 	}
