@@ -1,3 +1,3 @@
-module github.com/marcospgmelo/parsemail
+module github.com/ricosw/parsemail
 
 go 1.12
