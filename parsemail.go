@@ -19,6 +19,7 @@ const contentTypeMultipartAlternative = "multipart/alternative"
 const contentTypeMultipartRelated = "multipart/related"
 const contentTypeTextHtml = "text/html"
 const contentTypeTextPlain = "text/plain"
+const contentTypeOctetStream = "application/octet-stream"
 
 // Parse an email message read from io.Reader into parsemail.Email struct
 func Parse(r io.Reader) (email Email, err error) {
@@ -73,6 +74,8 @@ func Parse(r io.Reader) (email Email, err error) {
 		}
 
 		email.HTMLBody = strings.TrimSuffix(string(message[:]), "\n")
+	case contentTypeOctetStream:
+		email.Attachments, err = parseAttachmentOnlyEmail(msg.Body, msg.Header)
 	default:
 		email.Content, err = decodeContent(msg.Body, msg.Header.Get("Content-Transfer-Encoding"))
 	}
@@ -115,6 +118,31 @@ func createEmailFromHeader(header mail.Header) (email Email, err error) {
 	}
 
 	return
+}
+
+func parseAttachmentOnlyEmail(body io.Reader, header mail.Header) (attachments []Attachment, err error) {
+	contentDisposition := header.Get("Content-Disposition")
+
+	if len(contentDisposition) > 0 && strings.Contains(contentDisposition, "attachment;") {
+
+		attachmentData, err := decodeContent(body, header.Get("Content-Transfer-Encoding"))
+		if err != nil {
+			return attachments, err
+		}
+
+		fileName := strings.Replace(contentDisposition, "attachment; filename=\"", "", -1)
+		fileName = strings.TrimRight(fileName, "\"")
+
+		at := Attachment{
+			Filename:    fileName,
+			ContentType: "application/octet-stream",
+			Data:        attachmentData,
+		}
+
+		attachments = append(attachments, at)
+	}
+
+	return attachments, nil
 }
 
 func parseContentType(contentTypeHeader string) (contentType string, params map[string]string, err error) {
@@ -416,7 +444,7 @@ func decodeContent(content io.Reader, encoding string) (io.Reader, error) {
 		return bytes.NewReader(dd), nil
 	case "8bit":
 		return content, nil
-	case "":
+	case "binary", "":
 		return content, nil
 	case "quoted-printable":
 		return quotedprintable.NewReader(content), nil
